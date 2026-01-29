@@ -7,6 +7,10 @@ on:
 jobs:
   checks:
     uses: ./.github/workflows/ci.yml
+    permissions:
+      pull-requests: read
+      statuses: write
+      checks: write
 
   release:
     if: "!contains(github.event.head_commit.message, 'skip release')"
