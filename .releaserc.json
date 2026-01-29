@@ -6,7 +6,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "bash scripts/bump-cargo.sh"
+        "prepareCmd": "bash scripts/bump-cargo.sh ${nextRelease.version}"
       }
     ],
     [
