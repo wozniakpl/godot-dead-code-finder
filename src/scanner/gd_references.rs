@@ -77,6 +77,8 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
 
     // 3. identifier( – direct call (not after a dot); (?:^|\n|[^...]) replaces lookbehind
     let id_call_re = Regex::new(r"(?:^|\n|[^a-zA-Z0-9_.])([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap();
+    // 3b. ( identifier ( – nested call (e.g. outer(inner()) ); first match consumes "outer(" so inner is missed by 3
+    let nested_call_re = Regex::new(r"\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap();
     let keywords: std::collections::HashSet<&str> = [
         "if", "elif", "else", "for", "while", "match", "when", "return", "pass", "break",
         "continue", "and", "or", "not", "in", "is", "as", "await", "func", "class", "static",
@@ -97,6 +99,18 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
     };
     add_id_calls(&stripped);
     add_id_calls(source);
+
+    let mut add_nested_calls = |text: &str| {
+        for cap in nested_call_re.captures_iter(text) {
+            let name = cap.get(1).unwrap().as_str();
+            if keywords.contains(name) {
+                continue;
+            }
+            refs.push((name.to_string(), line_at(cap.get(1).unwrap().start())));
+        }
+    };
+    add_nested_calls(&stripped);
+    add_nested_calls(source);
 
     // 4. = func_name (function used as value: dict[key] = _console_print, var x = callback)
     // Match identifier on RHS of =; capture following char to exclude = func( (already a call).

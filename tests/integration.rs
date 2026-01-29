@@ -79,6 +79,28 @@ func _ready():
 }
 
 #[test]
+fn find_function_references_nested_call() {
+    let source = r#"
+func _load_settings() -> void:
+    for p in players:
+        player.volume_db = _linear_to_db(_get_effective_music_volume())
+
+func _linear_to_db(linear: float) -> float:
+    return linear
+
+func _get_effective_music_volume() -> float:
+    return music_volume * global_volume
+"#;
+    let refs = find_function_references(Path::new("a.gd"), source);
+    let names: Vec<_> = refs.iter().map(|r| r.0.as_str()).collect();
+    assert!(
+        names.contains(&"_get_effective_music_volume"),
+        "nested call inner(outer()) should count as reference"
+    );
+    assert!(names.contains(&"_linear_to_db"));
+}
+
+#[test]
 fn find_function_references_assigned_to_dict() {
     let source = r#"
 func _ready() -> void:

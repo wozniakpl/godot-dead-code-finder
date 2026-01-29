@@ -24,6 +24,9 @@ help::
 all:: build test lint
 
 build::
+	cargo build
+
+release::
 	cargo build --release
 
 test::
