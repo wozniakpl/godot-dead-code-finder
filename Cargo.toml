@@ -4,6 +4,10 @@ version = "0.1.0"
 description = "CLI tool to find unused functions in Godot GDScript codebases"
 edition = "2021"
 readme = "README.md"
+license = "MIT"
+repository = "https://github.com/wozniakpl/godot-dead-code-finder"
+keywords = ["godot", "gdscript", "dead-code", "unused", "cli"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -15,6 +19,10 @@ tempfile = "3"
 
 [[bin]]
 name = "godot-dead-code"
+path = "src/main.rs"
+
+[[bin]]
+name = "gdcf"
 path = "src/main.rs"
 
 [lib]

@@ -1,0 +1,18 @@
+# CI / release (not needed for the crate)
+.github/
+node_modules/
+package.json
+.releaserc.json
+.pre-commit-config.yaml
+scripts/
+
+# Dev / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.cursorrules
+
+# Test artifacts
+lcov.info
