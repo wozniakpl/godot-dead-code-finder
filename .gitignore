@@ -13,5 +13,8 @@ Cargo.lock
 # Coverage
 lcov.info
 
+# Node (semantic-release)
+node_modules/
+
 # Misc
 .DS_Store

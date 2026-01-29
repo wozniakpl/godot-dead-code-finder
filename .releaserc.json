@@ -1,0 +1,20 @@
+{
+  "branches": ["main", "master"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "bash scripts/bump-cargo.sh"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": []
+      }
+    ],
+    "@semantic-release/git"
+  ]
+}

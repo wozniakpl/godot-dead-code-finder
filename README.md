@@ -90,6 +90,17 @@ Convenience wrappers (run `make help` for a list):
 | `make install` | Install binary (cargo install)       |
 | `make all`     | build + test + lint                  |
 
+## Development
+
+Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat(cli): add flag`, `fix: crash on empty dir`). Releases are cut automatically on push to `main` via [semantic-release](https://github.com/semantic-release/semantic-release).
+
+- **Pre-commit:** Install the commit-msg hook to check messages locally:
+  ```bash
+  pip install pre-commit   # or: brew install pre-commit
+  pre-commit install --hook-type commit-msg
+  ```
+- **PRs:** The CI checks that the PR title matches a conventional type (`feat`, `fix`, `docs`, etc.).
+
 ## License
 
 MIT
