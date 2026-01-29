@@ -6,6 +6,10 @@
 
 set -e
 msg_file="${1:?missing commit message file}"
+# Only validate when run by git (path contains COMMIT_EDITMSG); skip when pre-commit passes other files
+if [[ "$msg_file" != *"COMMIT_EDITMSG"* ]]; then
+  exit 0
+fi
 first_line=$(head -n1 "$msg_file")
 
 # Skip merge commits, revert, and empty first line
