@@ -1,6 +1,6 @@
 //! Integration tests mirroring the Python project's test_scanner and test_cli.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use gdcf::scanner::gd_definitions::strip_string_literals;
 use gdcf::scanner::util::normalize_source;
@@ -9,6 +9,20 @@ use gdcf::scanner::{
     find_only_test_referenced_functions, find_tscn_references, find_unused_functions,
     scan_directory,
 };
+
+/// Create a temp dir and write files. Returns (guard, root). Paths are relative to root; parent dirs are created.
+fn project(files: &[(&str, &str)]) -> (tempfile::TempDir, PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    for (path, content) in files {
+        let full = root.join(path);
+        if let Some(parent) = full.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(&full, content).unwrap();
+    }
+    (dir, root)
+}
 
 #[test]
 fn find_function_definitions_single() {
@@ -129,11 +143,8 @@ fn test_find_tscn_references() {
 
 #[test]
 fn find_unused_functions_bootstrap() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    let script = root.join("main.gd");
-    std::fs::write(
-        &script,
+    let (_dir, root) = project(&[(
+        "main.gd",
         r#"extends Node
 
 func _ready():
@@ -145,9 +156,8 @@ func used_helper():
 func never_called():
     print("nobody calls me")
 "#,
-    )
-    .unwrap();
-    let unused = find_unused_functions(root, None, None);
+    )]);
+    let unused = find_unused_functions(&root, None, None);
     let names: Vec<_> = unused.iter().map(|f| f.name.as_str()).collect();
     assert!(names.contains(&"never_called"));
     assert!(!names.contains(&"used_helper"));
@@ -156,30 +166,49 @@ func never_called():
 
 #[test]
 fn find_unused_functions_empty_project() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::write(
-        root.join("main.gd"),
-        "extends Node\nfunc _ready():\n    pass\n",
-    )
-    .unwrap();
-    let unused = find_unused_functions(root, None, None);
+    let (_dir, root) = project(&[("main.gd", "extends Node\nfunc _ready():\n    pass\n")]);
+    let unused = find_unused_functions(&root, None, None);
     assert!(unused.is_empty());
 }
 
 #[test]
+fn find_unused_functions_respects_gdcf_ignore_tag() {
+    let (_dir, root) = project(&[(
+        "main.gd",
+        r#"extends Node
+
+func _ready():
+    pass
+
+func will_wire_later(): # gdcf-ignore
+    pass
+
+func actually_unused():
+    pass
+"#,
+    )]);
+    let unused = find_unused_functions(&root, None, None);
+    let names: Vec<_> = unused.iter().map(|f| f.name.as_str()).collect();
+    assert!(
+        !names.contains(&"will_wire_later"),
+        "tagged function should not be reported as unused"
+    );
+    assert!(names.contains(&"actually_unused"));
+}
+
+#[test]
 fn test_default_is_test_path() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::create_dir_all(root.join("tests")).unwrap();
-    std::fs::create_dir_all(root.join("src")).unwrap();
-    std::fs::write(root.join("tests/foo.gd"), "").unwrap();
-    std::fs::write(root.join("src/main.gd"), "").unwrap();
-    assert!(default_is_test_path(root, &root.join("tests/foo.gd")));
-    assert!(!default_is_test_path(root, &root.join("src/main.gd")));
-    std::fs::create_dir_all(root.join("game")).unwrap();
-    std::fs::write(root.join("game/logic_test.gd"), "").unwrap();
-    assert!(default_is_test_path(root, &root.join("game/logic_test.gd")));
+    let (_dir, root) = project(&[
+        ("tests/foo.gd", ""),
+        ("src/main.gd", ""),
+        ("game/logic_test.gd", ""),
+    ]);
+    assert!(default_is_test_path(&root, &root.join("tests/foo.gd")));
+    assert!(!default_is_test_path(&root, &root.join("src/main.gd")));
+    assert!(default_is_test_path(
+        &root,
+        &root.join("game/logic_test.gd")
+    ));
 }
 
 #[test]
@@ -205,30 +234,26 @@ fn strip_string_literals_triple_quote() {
 
 #[test]
 fn find_only_test_referenced_functions_bootstrap() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::create_dir_all(root.join("tests")).unwrap();
-    std::fs::create_dir_all(root.join("src")).unwrap();
-    std::fs::write(
-        root.join("src/main.gd"),
-        r#"extends Node
+    let (_dir, root) = project(&[
+        (
+            "src/main.gd",
+            r#"extends Node
 func _ready():
     pass
 
 func only_called_from_test():
     pass
 "#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("tests/test_main.gd"),
-        r#"extends Node
+        ),
+        (
+            "tests/test_main.gd",
+            r#"extends Node
 func test_thing():
     only_called_from_test()
 "#,
-    )
-    .unwrap();
-    let only_test = find_only_test_referenced_functions(root, None, None, None);
+        ),
+    ]);
+    let only_test = find_only_test_referenced_functions(&root, None, None, None);
     let names: Vec<_> = only_test.iter().map(|f| f.name.as_str()).collect();
     assert!(names.contains(&"only_called_from_test"));
     assert!(!names.contains(&"_ready"));
@@ -236,45 +261,42 @@ func test_thing():
 
 #[test]
 fn find_only_test_referenced_functions_with_custom_is_test_path() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::write(
-        root.join("main.gd"),
-        r#"extends Node
+    let (_dir, root) = project(&[
+        (
+            "main.gd",
+            r#"extends Node
 func _ready():
     pass
 
 func helper():
     pass
 "#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("test_foo.gd"),
-        r#"extends Node
+        ),
+        (
+            "test_foo.gd",
+            r#"extends Node
 func _run():
     helper()
 "#,
-    )
-    .unwrap();
+        ),
+    ]);
     let custom = Box::new(|p: &Path| {
         p.file_name()
             .and_then(|n| n.to_str())
             .map(|n| n.starts_with("test_"))
             .unwrap_or(false)
     });
-    let only_test = find_only_test_referenced_functions(root, Some(custom), None, None);
+    let only_test = find_only_test_referenced_functions(&root, Some(custom), None, None);
     let names: Vec<_> = only_test.iter().map(|f| f.name.as_str()).collect();
     assert!(names.contains(&"helper"));
 }
 
 #[test]
 fn find_unused_functions_ref_on_def_line_ignored() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::write(
-        root.join("main.gd"),
-        r#"extends Node
+    let (_dir, root) = project(&[
+        (
+            "main.gd",
+            r#"extends Node
 func _ready():
     pass
 
@@ -284,17 +306,16 @@ func used_elsewhere():
 func only_self_ref():
     only_self_ref()
 "#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("other.gd"),
-        r#"extends Node
+        ),
+        (
+            "other.gd",
+            r#"extends Node
 func _ready():
     used_elsewhere()
 "#,
-    )
-    .unwrap();
-    let unused = find_unused_functions(root, None, None);
+        ),
+    ]);
+    let unused = find_unused_functions(&root, None, None);
     let names: Vec<_> = unused.iter().map(|f| f.name.as_str()).collect();
     assert!(
         !names.contains(&"only_self_ref"),
@@ -305,30 +326,27 @@ func _ready():
 
 #[test]
 fn find_unused_functions_with_exclude_dirs() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::create_dir_all(root.join("addons")).unwrap();
-    std::fs::write(
-        root.join("main.gd"),
-        r#"extends Node
+    let (_dir, root) = project(&[
+        (
+            "main.gd",
+            r#"extends Node
 func _ready():
     pass
 func unused_in_main():
     pass
 "#,
-    )
-    .unwrap();
-    std::fs::write(
-        root.join("addons/plugin.gd"),
-        r#"extends Node
+        ),
+        (
+            "addons/plugin.gd",
+            r#"extends Node
 func _ready():
     pass
 func unused_in_plugin():
     pass
 "#,
-    )
-    .unwrap();
-    let unused = find_unused_functions(root, None, Some(&["addons".into()]));
+        ),
+    ]);
+    let unused = find_unused_functions(&root, None, Some(&["addons".into()]));
     let names: Vec<_> = unused.iter().map(|f| f.name.as_str()).collect();
     assert!(names.contains(&"unused_in_main"));
     assert!(!names.contains(&"unused_in_plugin"));
@@ -336,41 +354,29 @@ func unused_in_plugin():
 
 #[test]
 fn default_is_test_path_outside_root_returns_false() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    let other = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(other.path().join("tests")).unwrap();
-    std::fs::write(other.path().join("tests/foo.gd"), "").unwrap();
+    let (_dir, root) = project(&[]);
+    let (_other, other_root) = project(&[("tests/foo.gd", "")]);
     assert!(!default_is_test_path(
-        root,
-        &other.path().join("tests/foo.gd")
+        &root,
+        &other_root.join("tests/foo.gd")
     ));
 }
 
 #[test]
 fn default_is_test_path_stem_test_prefix_suffix() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::write(root.join("test_something.gd"), "").unwrap();
-    std::fs::write(root.join("something_test.gd"), "").unwrap();
-    assert!(default_is_test_path(root, &root.join("test_something.gd")));
-    assert!(default_is_test_path(root, &root.join("something_test.gd")));
+    let (_dir, root) = project(&[("test_something.gd", ""), ("something_test.gd", "")]);
+    assert!(default_is_test_path(&root, &root.join("test_something.gd")));
+    assert!(default_is_test_path(&root, &root.join("something_test.gd")));
 }
 
 // --- scan_directory with debug, iter_* ---
 
 #[test]
 fn scan_directory_with_debug_out() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::write(
-        root.join("main.gd"),
-        "extends Node\nfunc _ready():\n    pass\n",
-    )
-    .unwrap();
+    let (_dir, root) = project(&[("main.gd", "extends Node\nfunc _ready():\n    pass\n")]);
     let mut buf = Vec::new();
     let mut debug = Some(&mut buf as &mut dyn std::io::Write);
-    let result = scan_directory(root, &mut debug, None);
+    let result = scan_directory(&root, &mut debug, None);
     assert!(!result.definitions.is_empty());
     let out = String::from_utf8(buf).unwrap();
     assert!(out.contains("[walk]"));
@@ -378,16 +384,14 @@ fn scan_directory_with_debug_out() {
 
 #[test]
 fn scan_directory_exclude_dirs() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::create_dir_all(root.join("addons")).unwrap();
-    std::fs::write(root.join("main.gd"), "extends Node\nfunc _ready(): pass\n").unwrap();
-    std::fs::write(
-        root.join("addons/plugin.gd"),
-        "extends Node\nfunc _ready(): pass\nfunc only_in_plugin(): pass\n",
-    )
-    .unwrap();
-    let result = scan_directory(root, &mut None, Some(&["addons".into()]));
+    let (_dir, root) = project(&[
+        ("main.gd", "extends Node\nfunc _ready(): pass\n"),
+        (
+            "addons/plugin.gd",
+            "extends Node\nfunc _ready(): pass\nfunc only_in_plugin(): pass\n",
+        ),
+    ]);
+    let result = scan_directory(&root, &mut None, Some(&["addons".into()]));
     let def_names: Vec<_> = result.definitions.iter().map(|d| d.name.as_str()).collect();
     assert!(def_names.contains(&"_ready"));
     assert!(!def_names.contains(&"only_in_plugin"));
@@ -395,16 +399,14 @@ fn scan_directory_exclude_dirs() {
 
 #[test]
 fn scan_directory_skips_unreadable_file() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    std::fs::write(root.join("ok.gd"), "extends Node\nfunc _ready(): pass\n").unwrap();
+    let (_dir, root) = project(&[("ok.gd", "extends Node\nfunc _ready(): pass\n")]);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let bad = root.join("bad.gd");
         std::fs::File::create(&bad).unwrap();
         std::fs::set_permissions(&bad, std::fs::Permissions::from_mode(0o000)).unwrap();
-        let result = scan_directory(root, &mut None, None);
+        let result = scan_directory(&root, &mut None, None);
         let names: Vec<_> = result
             .definitions
             .iter()
@@ -414,7 +416,7 @@ fn scan_directory_skips_unreadable_file() {
     }
     #[cfg(not(unix))]
     {
-        let result = scan_directory(root, &mut None, None);
+        let result = scan_directory(&root, &mut None, None);
         assert!(!result.definitions.is_empty());
     }
 }

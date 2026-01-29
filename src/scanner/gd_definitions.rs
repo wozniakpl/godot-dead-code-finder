@@ -11,6 +11,9 @@ use super::models::FunctionDef;
 /// Optional: -> Type at end. Name is identifier (letters, digits, underscore)
 static FUNC_DEF_RE: OnceLock<Regex> = OnceLock::new();
 
+/// Regex: # then optional space then gdcf-ignore | dead-code-ignore | TODO: dead-code (case-insensitive).
+static IGNORE_DEAD_CODE_RE: OnceLock<Regex> = OnceLock::new();
+
 fn func_def_re() -> &'static Regex {
     FUNC_DEF_RE.get_or_init(|| {
         Regex::new(
@@ -18,6 +21,17 @@ fn func_def_re() -> &'static Regex {
         )
         .unwrap()
     })
+}
+
+fn ignore_dead_code_re() -> &'static Regex {
+    IGNORE_DEAD_CODE_RE.get_or_init(|| {
+        Regex::new(r"(?i)#\s*(?:gdcf-ignore|dead-code-ignore|TODO:\s*dead-code)").unwrap()
+    })
+}
+
+/// True if line contains an ignore-dead-code marker after a #.
+fn line_has_ignore_marker(line: &str) -> bool {
+    ignore_dead_code_re().is_match(line)
 }
 
 /// Replace string literal contents with spaces so we don't match inside strings.
@@ -79,6 +93,8 @@ pub fn strip_string_literals(source: &str) -> String {
 }
 
 /// Extract all function definitions from a GDScript source (top-level and inner classes).
+/// Functions tagged with `# gdcf-ignore`, `# dead-code-ignore`, or `# TODO: dead-code`
+/// (on the same line after `:` or on the next line) get `ignore_dead_code: true`.
 pub fn find_function_definitions(path: &Path, source: &str) -> Vec<FunctionDef> {
     let mut out = Vec::new();
     for cap in func_def_re().captures_iter(source) {
@@ -88,11 +104,36 @@ pub fn find_function_definitions(path: &Path, source: &str) -> Vec<FunctionDef> 
         let name = name_match.as_str().to_string();
         let full = m.as_str();
         let is_static = full.contains("static");
+
+        // Same line: from end of match to end of line
+        let rest_start = m.end();
+        let same_line_end = source[rest_start..]
+            .find('\n')
+            .map(|o| rest_start + o)
+            .unwrap_or(source.len());
+        let same_line = &source[rest_start..same_line_end];
+
+        // Next line (first line of body)
+        let next_line = if same_line_end < source.len() {
+            let next_start = same_line_end + 1;
+            let next_end = source[next_start..]
+                .find('\n')
+                .map(|o| next_start + o)
+                .unwrap_or(source.len());
+            &source[next_start..next_end]
+        } else {
+            ""
+        };
+
+        let ignore_dead_code =
+            line_has_ignore_marker(same_line) || line_has_ignore_marker(next_line);
+
         out.push(FunctionDef {
             name,
             file: path.to_path_buf(),
             line: line_no,
             is_static,
+            ignore_dead_code,
         });
     }
     out
@@ -116,5 +157,29 @@ mod tests {
         let s = r#""a\\b""#;
         let out = strip_string_literals(s);
         assert_eq!(out.len(), s.len());
+    }
+
+    #[test]
+    fn find_function_definitions_ignore_dead_code_same_line() {
+        let source = "func kept_for_later(): # gdcf-ignore\n    pass";
+        let defs = find_function_definitions(Path::new("a.gd"), source);
+        assert_eq!(defs.len(), 1);
+        assert!(defs[0].ignore_dead_code);
+    }
+
+    #[test]
+    fn find_function_definitions_ignore_dead_code_next_line() {
+        let source = "func kept_for_later():\n    # TODO: dead-code\n    pass";
+        let defs = find_function_definitions(Path::new("a.gd"), source);
+        assert_eq!(defs.len(), 1);
+        assert!(defs[0].ignore_dead_code);
+    }
+
+    #[test]
+    fn find_function_definitions_no_ignore_by_default() {
+        let source = "func foo():\n    pass";
+        let defs = find_function_definitions(Path::new("a.gd"), source);
+        assert_eq!(defs.len(), 1);
+        assert!(!defs[0].ignore_dead_code);
     }
 }

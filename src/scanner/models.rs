@@ -11,6 +11,8 @@ pub struct FunctionDef {
     pub file: PathBuf,
     pub line: u32,
     pub is_static: bool,
+    /// If true, do not report as unused (tagged with e.g. # gdcf-ignore or # TODO: dead-code).
+    pub ignore_dead_code: bool,
 }
 
 /// A reference site (file path and line number).

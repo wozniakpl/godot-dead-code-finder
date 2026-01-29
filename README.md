@@ -40,6 +40,31 @@ Engine callbacks such as `_ready`, `_process`, `_input`, etc. are always treated
 
 **Scene files (.tscn):** The tool also scans `.tscn` files for signal connections (`method="..."`). Functions used only as signal handlers (e.g. `_on_quit_dialog_confirmed` connected to a button) are not reported as unused.
 
+### Ignoring functions (tagging)
+
+You can mark functions so they are **not** reported as unused. Use this for callbacks you plan to wire up, or code you are keeping intentionally. Put one of these comments on the **same line** as the function header (after `:`) or on the **next line**:
+
+- `# gdcf-ignore`
+- `# dead-code-ignore`
+- `# TODO: dead-code`
+
+Example (same line):
+
+```gdscript
+func will_use_later(): # gdcf-ignore
+    pass
+```
+
+Example (next line):
+
+```gdscript
+func will_use_later():
+    # TODO: dead-code
+    pass
+```
+
+Tagged functions are excluded from both "Unused (never called)" and "Only called from test code". Use this to shrink the report to functions you still need to either use or remove.
+
 ## Build & test
 
 ```bash

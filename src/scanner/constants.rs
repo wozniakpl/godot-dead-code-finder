@@ -9,6 +9,7 @@ const ENGINE_CALLBACKS: &[&str] = &[
     "_process",
     "_physics_process",
     "_input",
+    "_gui_input",
     "_unhandled_input",
     "_unhandled_key_input",
     "_draw",

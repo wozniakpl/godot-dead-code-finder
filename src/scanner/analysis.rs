@@ -63,6 +63,9 @@ pub fn find_unused_functions(
         if is_gut_test_function(&fd.name) {
             continue;
         }
+        if fd.ignore_dead_code {
+            continue;
+        }
         let refs: std::collections::HashSet<RefSite> = scan
             .references
             .get(&fd.name)
@@ -128,6 +131,9 @@ pub fn find_only_test_referenced_functions(
             continue;
         }
         if is_test_path(&fd.file) {
+            continue;
+        }
+        if fd.ignore_dead_code {
             continue;
         }
         let refs: Vec<RefSite> = scan
