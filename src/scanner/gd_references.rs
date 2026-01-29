@@ -98,5 +98,20 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
     add_id_calls(&stripped);
     add_id_calls(source);
 
+    // 4. = func_name (function used as value: dict[key] = _console_print, var x = callback)
+    // Match identifier on RHS of =; capture following char to exclude = func( (already a call).
+    let assign_rhs_re = Regex::new(r"=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*([;\n,\)\]\}\(]?)").unwrap();
+    for cap in assign_rhs_re.captures_iter(&stripped) {
+        let name = cap.get(1).unwrap().as_str();
+        let next = cap.get(2).map(|m| m.as_str()).unwrap_or("");
+        if next == "(" {
+            continue; // it's a call, already counted
+        }
+        if keywords.contains(name) {
+            continue;
+        }
+        refs.push((name.to_string(), line_at(cap.get(1).unwrap().start())));
+    }
+
     refs
 }

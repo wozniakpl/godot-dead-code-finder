@@ -79,6 +79,23 @@ func _ready():
 }
 
 #[test]
+fn find_function_references_assigned_to_dict() {
+    let source = r#"
+func _ready() -> void:
+    context["print"] = _console_print
+
+func _console_print(arg) -> void:
+    output.append_text(str(arg) + "\n")
+"#;
+    let refs = find_function_references(Path::new("a.gd"), source);
+    let names: Vec<_> = refs.iter().map(|r| r.0.as_str()).collect();
+    assert!(
+        names.contains(&"_console_print"),
+        "dict[key] = func should count as reference"
+    );
+}
+
+#[test]
 fn test_find_tscn_references() {
     let source =
         r#"[connection signal="pressed" from="Button" to="." method="_on_quit_dialog_confirmed"]"#;
