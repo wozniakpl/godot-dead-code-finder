@@ -1,12 +1,16 @@
-name: Release
+name: CD
 
 on:
   push:
     branches: [main, master]
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
   release:
-    if: "!contains(github.event.head_commit.message, 'skip release')"
+    if: !contains(github.event.head_commit.message, 'skip release')
+    needs: checks
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,6 +28,4 @@ jobs:
         run: npm install
 
       - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
