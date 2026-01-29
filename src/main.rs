@@ -1,6 +1,6 @@
 //! CLI entrypoint for godot-dead-code-finder.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::{CommandFactory, Parser};
 use gdcf::scanner::{
@@ -41,6 +41,18 @@ struct Args {
     debug_function: Option<String>,
 }
 
+/// Format path for user-facing output: strip Windows extended path prefix `\\?\` so it displays as a normal path.
+fn display_path(path: &Path) -> std::borrow::Cow<'_, str> {
+    let s = path.to_string_lossy();
+    #[cfg(windows)]
+    {
+        if let Some(stripped) = s.strip_prefix(r"\\?\") {
+            return std::borrow::Cow::Owned(stripped.to_string());
+        }
+    }
+    s
+}
+
 fn main() {
     // No args at all: show help
     if std::env::args().len() == 1 {
@@ -56,7 +68,7 @@ fn main() {
     let path = args.path.unwrap_or_else(|| PathBuf::from("."));
     let root = path.canonicalize().unwrap_or(path);
     if !root.is_dir() {
-        eprintln!("Error: not a directory: {}", root.display());
+        eprintln!("Error: not a directory: {}", display_path(&root));
         std::process::exit(2);
     }
 
@@ -94,8 +106,8 @@ fn main() {
         gd_paths.sort_by_key(|a| a.to_string_lossy().to_lowercase());
         let mut tscn_paths = iter_tscn_files(&root, &mut debug_out, Some(&exclude_dirs));
         tscn_paths.sort_by_key(|a| a.to_string_lossy().to_lowercase());
-        eprintln!("Scanning: {}", root.display());
-        eprintln!("  Root (resolved): {}", root.display());
+        eprintln!("Scanning: {}", display_path(&root));
+        eprintln!("  Root (resolved): {}", display_path(&root));
         if args.verbose >= 3 {
             eprintln!("  (above: os.walk traversal)");
         }
@@ -105,7 +117,7 @@ fn main() {
         );
         for p in &gd_paths {
             let rel = p.strip_prefix(&root).unwrap_or(p);
-            eprintln!("    {}", rel.display());
+            eprintln!("    {}", display_path(rel));
         }
         eprintln!(
             "  Recursive .tscn search (case-insensitive) matched {} path(s):",
@@ -113,7 +125,7 @@ fn main() {
         );
         for p in &tscn_paths {
             let rel = p.strip_prefix(&root).unwrap_or(p);
-            eprintln!("    {}", rel.display());
+            eprintln!("    {}", display_path(rel));
         }
         if gd_paths.is_empty() && tscn_paths.is_empty() {
             if let Ok(entries) = std::fs::read_dir(&root) {
@@ -149,12 +161,12 @@ fn main() {
             files.dedup();
             let total_refs: usize = scan.references.values().map(|s| s.len()).sum();
             if args.verbose < 2 {
-                eprintln!("Scanning: {}", root.display());
+                eprintln!("Scanning: {}", display_path(&root));
             }
             eprintln!("  Found {} .gd file(s):", files.len());
             for f in &files {
                 let rel = f.strip_prefix(&root).unwrap_or(f);
-                eprintln!("    {}", rel.display());
+                eprintln!("    {}", display_path(rel));
             }
             eprintln!("  Total function definitions: {}", scan.definitions.len());
             eprintln!("  Total references: {}", total_refs);
@@ -175,14 +187,14 @@ fn main() {
         let refs = scan.references.get(func_name).cloned().unwrap_or_default();
         eprintln!("  Definitions found: {}", defs.len());
         for fd in &defs {
-            eprintln!("    {}:{}: {}", fd.file.display(), fd.line, fd.name);
+            eprintln!("    {}:{}: {}", display_path(&fd.file), fd.line, fd.name);
         }
         eprintln!("  References found: {}", refs.len());
         let mut ref_list: Vec<_> = refs.into_iter().collect();
         ref_list.sort_by(|a, b| (a.path.as_path(), a.line).cmp(&(b.path.as_path(), b.line)));
         for r in &ref_list {
             let rel = r.path.strip_prefix(&root).unwrap_or(&r.path);
-            eprintln!("    {}:{}", rel.display(), r.line);
+            eprintln!("    {}:{}", display_path(rel), r.line);
         }
         if defs.is_empty() {
             eprintln!("  Warning: no definition found for '{}'", func_name);
@@ -212,13 +224,13 @@ fn main() {
     if !unused.is_empty() {
         println!("Unused (never called):");
         for fd in &unused {
-            println!("  {}:{}: {}", fd.file.display(), fd.line, fd.name);
+            println!("  {}:{}: {}", display_path(&fd.file), fd.line, fd.name);
         }
     }
     if !only_in_tests.is_empty() {
         println!("Only called from test code (not from main app):");
         for fd in &only_in_tests {
-            println!("  {}:{}: {}", fd.file.display(), fd.line, fd.name);
+            println!("  {}:{}: {}", display_path(&fd.file), fd.line, fd.name);
         }
     }
     if unused.is_empty() && only_in_tests.is_empty() {
