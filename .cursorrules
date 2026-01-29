@@ -1,0 +1,10 @@
+# Project rules
+
+## WSL → Windows host: cargo / make
+
+When the workspace is in WSL, prefer running **cargo** and **make** on the Windows host via PowerShell so toolchains and binaries run natively on Windows.
+
+- **Make:** `powershell.exe -NoProfile -Command "cd 'C:\Users\Bartosz\dev\gdcf'; make [targets]"`
+- **Cargo:** `powershell.exe -NoProfile -Command "cd 'C:\Users\Bartosz\dev\gdcf'; cargo [args]"`
+
+Use the Windows path for the project: `C:\Users\Bartosz\dev\gdcf` (from WSL path `/mnt/c/Users/Bartosz/dev/gdcf`).
