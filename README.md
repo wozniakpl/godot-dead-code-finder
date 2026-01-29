@@ -4,12 +4,30 @@ CLI tool that scans a Godot GDScript codebase and reports **functions that are n
 
 ## Install
 
+**From crates.io (when published):**
+
 ```bash
-cargo install --path .
-# or
-cargo build --release
-# binary: target/release/godot-dead-code
+cargo install gdcf
 ```
+
+**From this repo (no clone needed):**
+
+```bash
+cargo install --git https://github.com/wozniakpl/godot-dead-code-finder
+```
+
+This installs two binaries: `godot-dead-code` and `gdcf` (same tool).
+
+**From a local clone:**
+
+```bash
+git clone https://github.com/wozniakpl/godot-dead-code-finder
+cd godot-dead-code-finder
+cargo install --path .
+# or build only: cargo build --release  → binary at target/release/godot-dead-code
+```
+
+Requires [Rust](https://rustup.rs/). Installed binaries go to `~/.cargo/bin` (ensure it’s on your `PATH`).
 
 ## Usage
 
