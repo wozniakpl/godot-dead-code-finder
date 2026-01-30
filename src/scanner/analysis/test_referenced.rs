@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use super::super::constants::is_engine_callback;
-use super::super::models::{FunctionDef, RefSite, ScanResult};
+use super::super::models::{FunctionDef, ScanResult};
 use super::super::scan::scan_directory;
 
 use super::default_is_test_path;
@@ -34,17 +34,7 @@ pub fn find_only_test_referenced_functions(
             return find_only_test_referenced_functions(root, None, Some(&s), exclude_dirs);
         }
     };
-    let def_sites: std::collections::HashSet<(std::path::PathBuf, u32, String)> = scan
-        .definitions
-        .iter()
-        .map(|fd| {
-            (
-                fd.file.canonicalize().unwrap_or(fd.file.clone()),
-                fd.line,
-                fd.name.clone(),
-            )
-        })
-        .collect();
+    let def_sites = scan.def_sites();
     let mut result = Vec::new();
     for fd in &scan.definitions {
         if is_engine_callback(&fd.name) {
@@ -56,19 +46,7 @@ pub fn find_only_test_referenced_functions(
         if fd.ignore_dead_code {
             continue;
         }
-        let refs: Vec<RefSite> = scan
-            .references
-            .get(&fd.name)
-            .map(|s| {
-                s.iter()
-                    .filter(|r| {
-                        let path = r.path.canonicalize().unwrap_or(r.path.clone());
-                        !def_sites.contains(&(path, r.line, fd.name.clone()))
-                    })
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default();
+        let refs = scan.refs_excluding_def_sites(&fd.name, &def_sites);
         if refs.is_empty() {
             continue;
         }

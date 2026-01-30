@@ -1,9 +1,9 @@
 //! Find function definitions that are never referenced.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::super::constants::{is_engine_callback, is_gut_test_function};
-use super::super::models::{FunctionDef, RefSite, ScanResult};
+use super::super::models::{FunctionDef, ScanResult};
 use super::super::scan::scan_directory;
 
 /// Return list of function definitions that are never referenced.
@@ -22,17 +22,7 @@ pub fn find_unused_functions(
             return find_unused_functions(root, Some(&s), exclude_dirs);
         }
     };
-    let def_sites: std::collections::HashSet<(PathBuf, u32, String)> = scan
-        .definitions
-        .iter()
-        .map(|fd| {
-            (
-                fd.file.canonicalize().unwrap_or(fd.file.clone()),
-                fd.line,
-                fd.name.clone(),
-            )
-        })
-        .collect();
+    let def_sites = scan.def_sites();
     let mut unused = Vec::new();
     for fd in &scan.definitions {
         if is_engine_callback(&fd.name) {
@@ -44,19 +34,7 @@ pub fn find_unused_functions(
         if fd.ignore_dead_code {
             continue;
         }
-        let refs: std::collections::HashSet<RefSite> = scan
-            .references
-            .get(&fd.name)
-            .map(|s| {
-                s.iter()
-                    .filter(|r| {
-                        let path = r.path.canonicalize().unwrap_or(r.path.clone());
-                        !def_sites.contains(&(path, r.line, fd.name.clone()))
-                    })
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default();
+        let refs = scan.refs_excluding_def_sites(&fd.name, &def_sites);
         if refs.is_empty() {
             unused.push(fd.clone());
         }

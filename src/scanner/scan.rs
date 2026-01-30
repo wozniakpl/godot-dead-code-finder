@@ -10,6 +10,13 @@ use super::models::ScanResult;
 use super::tscn::find_tscn_references;
 use super::util::normalize_source;
 
+/// Read file and normalize for parsing (replace replacement char, normalize line endings/BOM).
+fn read_file_normalized(path: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let text = text.replace('\u{fffd}', "?"); // replace invalid UTF-8 like Python errors="replace"
+    Some(normalize_source(&text))
+}
+
 /// Scan a directory for .gd and .tscn files; collect definitions from .gd and references from both.
 pub fn scan_directory(
     root: &Path,
@@ -18,11 +25,9 @@ pub fn scan_directory(
 ) -> ScanResult {
     let mut result = ScanResult::default();
     for path in iter_gd_files(root, debug_out, exclude_dirs) {
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t.replace('\u{fffd}', "?"), // replace invalid UTF-8 like Python errors="replace"
-            Err(_) => continue,
+        let Some(text) = read_file_normalized(&path) else {
+            continue;
         };
-        let text = normalize_source(&text);
         for fd in find_function_definitions(&path, &text) {
             result.definitions.push(fd);
         }
@@ -31,11 +36,9 @@ pub fn scan_directory(
         }
     }
     for path in iter_tscn_files(root, debug_out, exclude_dirs) {
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t.replace('\u{fffd}', "?"),
-            Err(_) => continue,
+        let Some(text) = read_file_normalized(&path) else {
+            continue;
         };
-        let text = normalize_source(&text);
         for (name, line) in find_tscn_references(&path, &text) {
             result.add_reference(name, path.clone(), line);
         }
