@@ -12,12 +12,19 @@ pub fn normalize_exclude_dir(pattern: &str) -> String {
     name.rsplit('/').next().unwrap_or(name).to_string()
 }
 
-fn iter_gd_files_rec(
+fn matches_extension(path: &Path, ext: &str) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.to_lowercase().ends_with(ext))
+}
+
+fn walk_files_rec(
     dir_path: &Path,
-    debug_out: &mut Option<&mut dyn Write>,
     root_path: &Path,
     exclude_dirs: &HashSet<String>,
     result: &mut Vec<PathBuf>,
+    extension: &str,
+    debug_out: &mut Option<&mut dyn Write>,
 ) {
     let mut dirs = Vec::new();
     let mut files = Vec::new();
@@ -34,13 +41,9 @@ fn iter_gd_files_rec(
         }
     }
     if let Some(ref mut out) = debug_out {
-        let gd_here: Vec<_> = files
+        let matching: Vec<_> = files
             .iter()
-            .filter(|p| {
-                p.file_name()
-                    .and_then(|n| n.to_str())
-                    .is_some_and(|n| n.to_lowercase().ends_with(".gd"))
-            })
+            .filter(|p| matches_extension(p, extension))
             .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
             .collect();
         let rel = path_diff(dir_path, root_path)
@@ -56,13 +59,10 @@ fn iter_gd_files_rec(
             .collect();
         let _ = writeln!(out, "  [walk]   dirs={:?}", dir_names);
         let _ = writeln!(out, "  [walk]   files={:?}", file_names);
-        let _ = writeln!(out, "  [walk]   .gd here={:?}", gd_here);
+        let _ = writeln!(out, "  [walk]   {} here={:?}", extension, matching);
     }
     for p in &files {
-        if p.file_name()
-            .and_then(|n| n.to_str())
-            .is_some_and(|n| n.to_lowercase().ends_with(".gd"))
-        {
+        if matches_extension(p, extension) {
             result.push(p.clone());
         }
     }
@@ -71,7 +71,7 @@ fn iter_gd_files_rec(
             .and_then(|n| n.to_str())
             .is_none_or(|n| !exclude_dirs.contains(&n.to_string()))
         {
-            iter_gd_files_rec(d.as_path(), debug_out, root_path, exclude_dirs, result);
+            walk_files_rec(d.as_path(), root_path, exclude_dirs, result, extension, debug_out);
         }
     }
 }
@@ -119,52 +119,14 @@ pub fn iter_gd_files(
         return Vec::new();
     }
     let mut result = Vec::new();
-    iter_gd_files_rec(&root_path, debug_out, &root_path, &excluded, &mut result);
+    walk_files_rec(&root_path, &root_path, &excluded, &mut result, ".gd", debug_out);
     result
-}
-
-fn iter_tscn_files_rec(
-    dir_path: &Path,
-    _root_path: &Path,
-    exclude_dirs: &HashSet<String>,
-    result: &mut Vec<PathBuf>,
-) {
-    let mut dirs = Vec::new();
-    let mut files = Vec::new();
-    let read_dir = match fs::read_dir(dir_path) {
-        Ok(rd) => rd,
-        Err(_) => return,
-    };
-    for entry in read_dir.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            dirs.push(path);
-        } else if path.is_file() {
-            files.push(path);
-        }
-    }
-    for p in &files {
-        if p.file_name()
-            .and_then(|n| n.to_str())
-            .is_some_and(|n| n.to_lowercase().ends_with(".tscn"))
-        {
-            result.push(p.clone());
-        }
-    }
-    for d in &dirs {
-        if d.file_name()
-            .and_then(|n| n.to_str())
-            .is_none_or(|n| !exclude_dirs.contains(&n.to_string()))
-        {
-            iter_tscn_files_rec(d.as_path(), _root_path, exclude_dirs, result);
-        }
-    }
 }
 
 /// Recursively yield all .tscn files under root (case-insensitive).
 pub fn iter_tscn_files(
     root: &Path,
-    _debug_out: &mut Option<&mut dyn Write>,
+    debug_out: &mut Option<&mut dyn Write>,
     exclude_dirs: Option<&[String]>,
 ) -> Vec<PathBuf> {
     let root_path = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
@@ -177,7 +139,7 @@ pub fn iter_tscn_files(
         return Vec::new();
     }
     let mut result = Vec::new();
-    iter_tscn_files_rec(&root_path, &root_path, &excluded, &mut result);
+    walk_files_rec(&root_path, &root_path, &excluded, &mut result, ".tscn", debug_out);
     result
 }
 
