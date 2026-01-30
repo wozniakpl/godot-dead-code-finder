@@ -52,7 +52,11 @@ impl ScanResult {
     }
 
     /// Refs for `name` excluding sites that are definition lines (same file:line as a def).
-    pub fn refs_excluding_def_sites(&self, name: &str, def_sites: &HashSet<(PathBuf, u32, String)>) -> Vec<RefSite> {
+    pub fn refs_excluding_def_sites(
+        &self,
+        name: &str,
+        def_sites: &HashSet<(PathBuf, u32, String)>,
+    ) -> Vec<RefSite> {
         self.references
             .get(name)
             .map(|s| {

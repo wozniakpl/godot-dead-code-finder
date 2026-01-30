@@ -25,7 +25,9 @@ pub fn scan_directory(
 ) -> ScanResult {
     let mut result = ScanResult::default();
     for path in iter_gd_files(root, debug_out, exclude_dirs) {
-        let Some(text) = read_file_normalized(&path) else { continue };
+        let Some(text) = read_file_normalized(&path) else {
+            continue;
+        };
         for fd in find_function_definitions(&path, &text) {
             result.definitions.push(fd);
         }
@@ -34,7 +36,9 @@ pub fn scan_directory(
         }
     }
     for path in iter_tscn_files(root, debug_out, exclude_dirs) {
-        let Some(text) = read_file_normalized(&path) else { continue };
+        let Some(text) = read_file_normalized(&path) else {
+            continue;
+        };
         for (name, line) in find_tscn_references(&path, &text) {
             result.add_reference(name, path.clone(), line);
         }

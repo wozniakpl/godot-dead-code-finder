@@ -71,7 +71,14 @@ fn walk_files_rec(
             .and_then(|n| n.to_str())
             .is_none_or(|n| !exclude_dirs.contains(&n.to_string()))
         {
-            walk_files_rec(d.as_path(), root_path, exclude_dirs, result, extension, debug_out);
+            walk_files_rec(
+                d.as_path(),
+                root_path,
+                exclude_dirs,
+                result,
+                extension,
+                debug_out,
+            );
         }
     }
 }
@@ -119,7 +126,14 @@ pub fn iter_gd_files(
         return Vec::new();
     }
     let mut result = Vec::new();
-    walk_files_rec(&root_path, &root_path, &excluded, &mut result, ".gd", debug_out);
+    walk_files_rec(
+        &root_path,
+        &root_path,
+        &excluded,
+        &mut result,
+        ".gd",
+        debug_out,
+    );
     result
 }
 
@@ -139,7 +153,14 @@ pub fn iter_tscn_files(
         return Vec::new();
     }
     let mut result = Vec::new();
-    walk_files_rec(&root_path, &root_path, &excluded, &mut result, ".tscn", debug_out);
+    walk_files_rec(
+        &root_path,
+        &root_path,
+        &excluded,
+        &mut result,
+        ".tscn",
+        debug_out,
+    );
     result
 }
 

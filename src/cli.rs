@@ -72,10 +72,7 @@ fn exclude_dirs(args: &Args) -> Vec<String> {
     }
 }
 
-fn build_is_test_path(
-    root: &PathBuf,
-    test_dirs: &[String],
-) -> Box<dyn Fn(&Path) -> bool + Send> {
+fn build_is_test_path(root: &PathBuf, test_dirs: &[String]) -> Box<dyn Fn(&Path) -> bool + Send> {
     if test_dirs.is_empty() {
         let root = root.clone();
         Box::new(move |path: &Path| default_is_test_path(&root, path))
@@ -85,10 +82,7 @@ fn build_is_test_path(
         Box::new(move |path: &Path| {
             let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
             for d in &test_dirs {
-                let test_base = root
-                    .join(d)
-                    .canonicalize()
-                    .unwrap_or_else(|_| root.join(d));
+                let test_base = root.join(d).canonicalize().unwrap_or_else(|_| root.join(d));
                 if path.starts_with(&test_base) {
                     return true;
                 }
@@ -162,11 +156,7 @@ fn print_verbose_summary(root: &Path, scan: &ScanResult, verbose: u8) {
     eprintln!("  Total references: {}", total_refs);
 }
 
-fn run_debug_mode(
-    root: &Path,
-    func_name: &str,
-    scan: &ScanResult,
-) -> i32 {
+fn run_debug_mode(root: &Path, func_name: &str, scan: &ScanResult) -> i32 {
     eprintln!("Debug: searching for references to '{}'", func_name);
     let defs: Vec<_> = scan
         .definitions
@@ -246,8 +236,8 @@ pub fn run(mut args: Args) -> i32 {
     }
 
     if let Some(ref func_name) = args.debug_function {
-        let scan = scan_opt
-            .unwrap_or_else(|| scan_directory(&root, &mut debug_out, Some(&exclude_dirs)));
+        let scan =
+            scan_opt.unwrap_or_else(|| scan_directory(&root, &mut debug_out, Some(&exclude_dirs)));
         return run_debug_mode(&root, func_name, &scan);
     }
 

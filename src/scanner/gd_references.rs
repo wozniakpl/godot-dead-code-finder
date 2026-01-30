@@ -43,9 +43,8 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
     let line_at = |pos: usize| -> u32 { (source[..pos].matches('\n').count() + 1) as u32 };
 
     // 1. call("func_name") or call_deferred("func_name") – string is the name (use source)
-    let re = CALL_DOT_RE.get_or_init(|| {
-        Regex::new(r#"\.call\s*\(\s*["']([a-zA-Z_][a-zA-Z0-9_]*)["']"#).unwrap()
-    });
+    let re = CALL_DOT_RE
+        .get_or_init(|| Regex::new(r#"\.call\s*\(\s*["']([a-zA-Z_][a-zA-Z0-9_]*)["']"#).unwrap());
     for cap in re.captures_iter(source) {
         let m = cap.get(1).unwrap();
         refs.push((m.as_str().to_string(), line_at(m.start())));
@@ -94,9 +93,8 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
     }
 
     // 2b. obj.method_name( – explicit method call
-    let re = METHOD_CALL_RE.get_or_init(|| {
-        Regex::new(r"\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap()
-    });
+    let re =
+        METHOD_CALL_RE.get_or_init(|| Regex::new(r"\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap());
     for cap in re.captures_iter(&stripped) {
         let m = cap.get(1).unwrap();
         refs.push((m.as_str().to_string(), line_at(m.start())));
@@ -107,9 +105,8 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
     }
 
     // 2c. obj["method_name"]( or obj['method_name']( – dynamic method call
-    let re = BRACKET_CALL_RE.get_or_init(|| {
-        Regex::new(r#"\[\s*["']([a-zA-Z_][a-zA-Z0-9_]*)["']\s*\]\s*\("#).unwrap()
-    });
+    let re = BRACKET_CALL_RE
+        .get_or_init(|| Regex::new(r#"\[\s*["']([a-zA-Z_][a-zA-Z0-9_]*)["']\s*\]\s*\("#).unwrap());
     for cap in re.captures_iter(&stripped) {
         let m = cap.get(1).unwrap();
         refs.push((m.as_str().to_string(), line_at(m.start())));
@@ -119,9 +116,8 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
     let id_re = ID_CALL_RE.get_or_init(|| {
         Regex::new(r"(?:^|\n|[^a-zA-Z0-9_.])([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap()
     });
-    let nested_re = NESTED_CALL_RE.get_or_init(|| {
-        Regex::new(r"\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap()
-    });
+    let nested_re =
+        NESTED_CALL_RE.get_or_init(|| Regex::new(r"\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap());
     let kw = keywords();
     for cap in id_re.captures_iter(&stripped) {
         let name = cap.get(1).unwrap().as_str();
@@ -149,9 +145,8 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
     }
 
     // 4. = func_name (function used as value)
-    let re = ASSIGN_RHS_RE.get_or_init(|| {
-        Regex::new(r"=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*([;\n,\)\]\}\(]?)").unwrap()
-    });
+    let re = ASSIGN_RHS_RE
+        .get_or_init(|| Regex::new(r"=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*([;\n,\)\]\}\(]?)").unwrap());
     for cap in re.captures_iter(&stripped) {
         let name = cap.get(1).unwrap().as_str();
         let next = cap.get(2).map(|m| m.as_str()).unwrap_or("");
