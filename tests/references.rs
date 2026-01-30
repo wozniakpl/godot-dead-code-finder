@@ -67,6 +67,29 @@ func _get_effective_music_volume() -> float:
 }
 
 #[test]
+fn find_function_references_tween_method_callback() {
+    let source = r#"
+const TWEEN_FADE_AUDIO_DURATION = 0.5
+
+func set_master_volume(volume_db: float) -> void:
+    master_volume = volume_db
+    master_volume_changed.emit(master_volume)
+
+func transition_master_volume(from_volume: float, to_volume: float) -> void:
+    if _fade_tween != null:
+        _fade_tween.kill()
+    _fade_tween = create_tween()
+    _fade_tween.tween_method(set_master_volume, from_volume, to_volume, TWEEN_FADE_AUDIO_DURATION)
+"#;
+    let refs = find_function_references(Path::new("audio.gd"), source);
+    let names: Vec<_> = refs.iter().map(|r| r.0.as_str()).collect();
+    assert!(
+        names.contains(&"set_master_volume"),
+        "tween_method(set_master_volume, ...) should count as reference"
+    );
+}
+
+#[test]
 fn find_function_references_assigned_to_dict() {
     let source = r#"
 func _ready() -> void:
