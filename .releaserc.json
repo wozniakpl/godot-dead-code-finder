@@ -12,6 +12,7 @@
     [
       "@semantic-release/git",
       {
+        "assets": ["Cargo.toml"],
         "message": "chore(release): ${nextRelease.version} [skip ci]"
       }
     ],
