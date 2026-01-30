@@ -11,6 +11,7 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(name = "godot-dead-code")]
 #[command(about = "Find functions that are never called in a Godot GDScript codebase.")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 pub struct Args {
     /// Root directory to scan (default when omitted: current directory)
     #[arg(value_name = "PATH")]

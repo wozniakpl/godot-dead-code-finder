@@ -3,8 +3,6 @@
 pub mod cli;
 pub mod scanner;
 
-pub const VERSION: &str = "0.1.0";
-
 pub use cli::{display_path, run, Args};
 pub use scanner::{
     default_is_test_path, find_only_test_referenced_functions, find_unused_functions,

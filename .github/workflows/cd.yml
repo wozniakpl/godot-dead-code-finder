@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
   checks:
@@ -13,7 +13,6 @@ jobs:
       checks: write
 
   release:
-    if: "!contains(github.event.head_commit.message, 'skip release')"
     needs: checks
     runs-on: ubuntu-latest
     permissions:
