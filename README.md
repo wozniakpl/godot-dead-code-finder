@@ -4,12 +4,6 @@ CLI tool that scans a Godot GDScript codebase and reports **functions that are n
 
 ## Install
 
-**From crates.io (when published):**
-
-```bash
-cargo install gdcf
-```
-
 **From this repo (no clone needed):**
 
 ```bash
