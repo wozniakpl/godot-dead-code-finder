@@ -172,6 +172,32 @@ func _ready():
 }
 
 #[test]
+fn find_unused_functions_tween_method_callback_not_unused() {
+    let (_dir, root) = project(&[(
+        "audio.gd",
+        r#"extends Node
+const TWEEN_FADE_AUDIO_DURATION = 0.5
+
+func set_master_volume(volume_db: float) -> void:
+    master_volume = volume_db
+    master_volume_changed.emit(master_volume)
+
+func transition_master_volume(from_volume: float, to_volume: float) -> void:
+    if _fade_tween != null:
+        _fade_tween.kill()
+    _fade_tween = create_tween()
+    _fade_tween.tween_method(set_master_volume, from_volume, to_volume, TWEEN_FADE_AUDIO_DURATION)
+"#,
+    )]);
+    let unused = find_unused_functions(&root, None, None);
+    let names: Vec<_> = unused.iter().map(|f| f.name.as_str()).collect();
+    assert!(
+        !names.contains(&"set_master_volume"),
+        "set_master_volume used as tween_method callback should not be reported as unused"
+    );
+}
+
+#[test]
 fn find_unused_functions_with_exclude_dirs() {
     let (_dir, root) = project(&[
         (

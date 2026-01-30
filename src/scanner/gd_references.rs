@@ -18,6 +18,8 @@ static BRACKET_CALL_RE: OnceLock<Regex> = OnceLock::new();
 static ID_CALL_RE: OnceLock<Regex> = OnceLock::new();
 static NESTED_CALL_RE: OnceLock<Regex> = OnceLock::new();
 static ASSIGN_RHS_RE: OnceLock<Regex> = OnceLock::new();
+/// Identifier as first argument of a call: foo(callback, ...) or foo(callback) — e.g. tween_method(set_master_volume, ...)
+static FIRST_ARG_IDENT_RE: OnceLock<Regex> = OnceLock::new();
 
 static KEYWORDS: OnceLock<std::collections::HashSet<&'static str>> = OnceLock::new();
 
@@ -154,6 +156,16 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
             continue;
         }
         refs.push((name.to_string(), line_at(cap.get(1).unwrap().start())));
+    }
+
+    // 5. identifier as first argument of a call: tween_method(set_master_volume, from, to, duration)
+    let re = FIRST_ARG_IDENT_RE
+        .get_or_init(|| Regex::new(r"\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*[,\)]").unwrap());
+    for cap in re.captures_iter(&stripped) {
+        let name = cap.get(1).unwrap().as_str();
+        if !kw.contains(name) {
+            refs.push((name.to_string(), line_at(cap.get(1).unwrap().start())));
+        }
     }
 
     refs
