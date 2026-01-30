@@ -72,12 +72,12 @@ fn exclude_dirs(args: &Args) -> Vec<String> {
     }
 }
 
-fn build_is_test_path(root: &PathBuf, test_dirs: &[String]) -> Box<dyn Fn(&Path) -> bool + Send> {
+fn build_is_test_path(root: &Path, test_dirs: &[String]) -> Box<dyn Fn(&Path) -> bool + Send> {
     if test_dirs.is_empty() {
-        let root = root.clone();
+        let root = root.to_path_buf();
         Box::new(move |path: &Path| default_is_test_path(&root, path))
     } else {
-        let root = root.clone();
+        let root = root.to_path_buf();
         let test_dirs = test_dirs.to_vec();
         Box::new(move |path: &Path| {
             let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
@@ -209,7 +209,7 @@ fn print_results(unused: &[FunctionDef], only_in_tests: &[FunctionDef]) -> i32 {
 }
 
 pub fn run(mut args: Args) -> i32 {
-    args.test_dirs.extend(args.tests_dirs.drain(..));
+    args.test_dirs.append(&mut args.tests_dirs);
 
     let root = match resolve_root(args.path.as_ref()) {
         Ok(r) => r,
