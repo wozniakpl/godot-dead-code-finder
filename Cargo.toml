@@ -1,6 +1,6 @@
 [package]
 name = "gdcf"
-version = "1.0.4"
+version = "1.1.0"
 description = "CLI tool to find unused functions in Godot GDScript codebases"
 edition = "2021"
 readme = "README.md"
