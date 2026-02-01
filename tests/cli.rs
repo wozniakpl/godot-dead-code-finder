@@ -116,6 +116,22 @@ fn cli_exclude_dir_override() {
 }
 
 #[test]
+fn cli_no_default_excludes() {
+    let (_dir, root) = project(&[
+        ("main.gd", "extends Node\nfunc _ready(): pass\n"),
+        (
+            "addons/plugin.gd",
+            "extends Node\nfunc _ready(): pass\nfunc only_in_plugin(): pass\n",
+        ),
+    ]);
+    let code = run_cli(&["--no-default-excludes", root.to_str().unwrap()]);
+    assert_eq!(
+        code, 1,
+        "with --no-default-excludes, addons is scanned so only_in_plugin is reported as unused"
+    );
+}
+
+#[test]
 fn cli_tests_dir_only_test_referenced() {
     let (_dir, root) = project(&[
         (

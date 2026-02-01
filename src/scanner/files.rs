@@ -102,11 +102,12 @@ fn path_diff(a: &Path, b: &Path) -> Option<String> {
     Some(result.to_string_lossy().to_string())
 }
 
-/// Recursively yield all .gd files under root (case-insensitive).
-pub fn iter_gd_files(
+/// Recursively yield all files under root with the given extension (case-insensitive).
+fn iter_files_by_extension(
     root: &Path,
     debug_out: &mut Option<&mut dyn Write>,
     exclude_dirs: Option<&[String]>,
+    extension: &str,
 ) -> Vec<PathBuf> {
     let root_path = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let excluded: HashSet<String> = exclude_dirs
@@ -131,10 +132,19 @@ pub fn iter_gd_files(
         &root_path,
         &excluded,
         &mut result,
-        ".gd",
+        extension,
         debug_out,
     );
     result
+}
+
+/// Recursively yield all .gd files under root (case-insensitive).
+pub fn iter_gd_files(
+    root: &Path,
+    debug_out: &mut Option<&mut dyn Write>,
+    exclude_dirs: Option<&[String]>,
+) -> Vec<PathBuf> {
+    iter_files_by_extension(root, debug_out, exclude_dirs, ".gd")
 }
 
 /// Recursively yield all .tscn files under root (case-insensitive).
@@ -143,25 +153,7 @@ pub fn iter_tscn_files(
     debug_out: &mut Option<&mut dyn Write>,
     exclude_dirs: Option<&[String]>,
 ) -> Vec<PathBuf> {
-    let root_path = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    let excluded: HashSet<String> = exclude_dirs
-        .unwrap_or(&[])
-        .iter()
-        .map(|p| normalize_exclude_dir(p))
-        .collect();
-    if !root_path.is_dir() {
-        return Vec::new();
-    }
-    let mut result = Vec::new();
-    walk_files_rec(
-        &root_path,
-        &root_path,
-        &excluded,
-        &mut result,
-        ".tscn",
-        debug_out,
-    );
-    result
+    iter_files_by_extension(root, debug_out, exclude_dirs, ".tscn")
 }
 
 #[cfg(test)]

@@ -2,6 +2,9 @@
 
 use std::path::{Path, PathBuf};
 
+/// Max number of directory entries to list in verbose mode before truncating.
+const VERBOSE_LIST_MAX: usize = 50;
+
 use crate::scanner::{
     default_is_test_path, find_only_test_referenced_functions, find_unused_functions,
     iter_gd_files, iter_tscn_files, scan_directory, FunctionDef, ScanResult,
@@ -33,9 +36,13 @@ pub struct Args {
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
-    /// Directory name (or **/name) to exclude from scan; can be repeated (default: **/addons)
-    #[arg(long = "exclude-dir", value_name = "DIR", default_values = ["**/addons"])]
+    /// Directory name (or **/name) to exclude from scan; can be repeated (default when omitted: **/addons)
+    #[arg(long = "exclude-dir", value_name = "DIR")]
     pub exclude_dirs: Vec<String>,
+
+    /// Do not add default exclude (**/addons); use only --exclude-dir values (or none)
+    #[arg(long)]
+    pub no_default_excludes: bool,
 
     /// Debug mode: show all references found for a specific function name
     #[arg(long, value_name = "NAME")]
@@ -65,10 +72,12 @@ fn resolve_root(path: Option<&PathBuf>) -> Result<PathBuf, i32> {
 }
 
 fn exclude_dirs(args: &Args) -> Vec<String> {
-    if args.exclude_dirs.is_empty() {
-        vec!["**/addons".to_string()]
-    } else {
+    if !args.exclude_dirs.is_empty() {
         args.exclude_dirs.clone()
+    } else if args.no_default_excludes {
+        vec![]
+    } else {
+        vec!["**/addons".to_string()]
     }
 }
 
@@ -124,7 +133,7 @@ fn print_verbose_file_list(root: &Path, exclude_dirs: &[String], verbose: u8) {
             let mut top: Vec<_> = entries.flatten().map(|e| e.file_name()).collect();
             top.sort_by_key(|a| a.to_string_lossy().to_lowercase());
             eprintln!("  Top-level entries (os.listdir): {}", top.len());
-            for name in top.iter().take(50) {
+            for name in top.iter().take(VERBOSE_LIST_MAX) {
                 let kind = if root.join(name).is_dir() {
                     "dir"
                 } else {
@@ -132,8 +141,8 @@ fn print_verbose_file_list(root: &Path, exclude_dirs: &[String], verbose: u8) {
                 };
                 eprintln!("    [{}] {}", kind, name.to_string_lossy());
             }
-            if top.len() > 50 {
-                eprintln!("    ... and {} more", top.len() - 50);
+            if top.len() > VERBOSE_LIST_MAX {
+                eprintln!("    ... and {} more", top.len() - VERBOSE_LIST_MAX);
             }
         }
     }
@@ -223,29 +232,22 @@ pub fn run(mut args: Args) -> i32 {
     }
 
     let mut debug_out: Option<&mut dyn std::io::Write> = None;
-    let scan_opt = if args.verbose > 0 || args.debug_function.is_some() {
-        Some(scan_directory(&root, &mut debug_out, Some(&exclude_dirs)))
-    } else {
-        None
-    };
+    // Run a single scan for verbose, debug, and analysis (avoids scanning twice when quiet).
+    let scan = scan_directory(&root, &mut debug_out, Some(&exclude_dirs));
 
     if args.verbose >= 1 {
-        if let Some(ref scan) = scan_opt {
-            print_verbose_summary(&root, scan, args.verbose);
-        }
+        print_verbose_summary(&root, &scan, args.verbose);
     }
 
     if let Some(ref func_name) = args.debug_function {
-        let scan =
-            scan_opt.unwrap_or_else(|| scan_directory(&root, &mut debug_out, Some(&exclude_dirs)));
         return run_debug_mode(&root, func_name, &scan);
     }
 
-    let unused = find_unused_functions(&root, scan_opt.as_ref(), Some(&exclude_dirs));
+    let unused = find_unused_functions(&root, Some(&scan), Some(&exclude_dirs));
     let only_in_tests = find_only_test_referenced_functions(
         &root,
         Some(is_test_path),
-        scan_opt.as_ref(),
+        Some(&scan),
         Some(&exclude_dirs),
     );
 
