@@ -35,7 +35,7 @@ pub fn is_engine_callback(name: &str) -> bool {
     ENGINE_CALLBACKS.contains(&name)
 }
 
-/// True if name is a GUT test method (func test_*) or GUT hook which the framework runs.
+/// True if name is a GUT test method (func test_*) or GUT hook which the framework runs (case-insensitive for test_ prefix).
 pub fn is_gut_test_function(name: &str) -> bool {
-    name.starts_with("test_") || GUT_HOOKS.contains(&name)
+    name.len() >= 5 && name[..5].eq_ignore_ascii_case("test_") || GUT_HOOKS.contains(&name)
 }

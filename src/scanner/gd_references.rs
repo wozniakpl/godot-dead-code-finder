@@ -94,14 +94,10 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
         refs.push((cap.get(1).unwrap().as_str().to_string(), line_at(m.start())));
     }
 
-    // 2b. obj.method_name( – explicit method call
+    // 2b. obj.method_name( – explicit method call (stripped only to avoid refs inside strings)
     let re =
         METHOD_CALL_RE.get_or_init(|| Regex::new(r"\.\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap());
     for cap in re.captures_iter(&stripped) {
-        let m = cap.get(1).unwrap();
-        refs.push((m.as_str().to_string(), line_at(m.start())));
-    }
-    for cap in re.captures_iter(source) {
         let m = cap.get(1).unwrap();
         refs.push((m.as_str().to_string(), line_at(m.start())));
     }
@@ -114,7 +110,7 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
         refs.push((m.as_str().to_string(), line_at(m.start())));
     }
 
-    // 3. identifier( – direct call; 3b. ( identifier ( – nested call
+    // 3. identifier( – direct call; 3b. ( identifier ( – nested call (stripped only to avoid refs inside strings)
     let id_re = ID_CALL_RE.get_or_init(|| {
         Regex::new(r"(?:^|\n|[^a-zA-Z0-9_.])([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap()
     });
@@ -127,19 +123,7 @@ pub fn find_function_references(_path: &Path, source: &str) -> Vec<(String, u32)
             refs.push((name.to_string(), line_at(cap.get(1).unwrap().start())));
         }
     }
-    for cap in id_re.captures_iter(source) {
-        let name = cap.get(1).unwrap().as_str();
-        if !kw.contains(name) {
-            refs.push((name.to_string(), line_at(cap.get(1).unwrap().start())));
-        }
-    }
     for cap in nested_re.captures_iter(&stripped) {
-        let name = cap.get(1).unwrap().as_str();
-        if !kw.contains(name) {
-            refs.push((name.to_string(), line_at(cap.get(1).unwrap().start())));
-        }
-    }
-    for cap in nested_re.captures_iter(source) {
         let name = cap.get(1).unwrap().as_str();
         if !kw.contains(name) {
             refs.push((name.to_string(), line_at(cap.get(1).unwrap().start())));

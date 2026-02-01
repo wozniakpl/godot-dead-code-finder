@@ -11,7 +11,7 @@ pub use test_referenced::{find_only_test_referenced_functions, IsTestPathFn};
 pub use unused::find_unused_functions;
 
 /// Return true if path is considered test code (under root).
-/// Default: any segment is 'tests' or 'test', or filename is *_test.gd / test_*.gd.
+/// Default: any path segment is 'tests' or 'test' (case-insensitive), or filename stem is *_test / test_* (case-insensitive).
 pub fn default_is_test_path(root: &Path, path: &Path) -> bool {
     let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
@@ -22,12 +22,14 @@ pub fn default_is_test_path(root: &Path, path: &Path) -> bool {
     for component in rel.components() {
         if let std::path::Component::Normal(os_str) = component {
             if let Some(s) = os_str.to_str() {
-                if s == "tests" || s == "test" {
+                let lower = s.to_lowercase();
+                if lower == "tests" || lower == "test" {
                     return true;
                 }
             }
         }
     }
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-    stem.ends_with("_test") || stem.starts_with("test_")
+    let stem_lower = stem.to_lowercase();
+    stem_lower.ends_with("_test") || stem_lower.starts_with("test_")
 }

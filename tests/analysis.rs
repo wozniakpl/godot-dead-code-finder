@@ -241,3 +241,17 @@ fn default_is_test_path_stem_test_prefix_suffix() {
     assert!(default_is_test_path(&root, &root.join("test_something.gd")));
     assert!(default_is_test_path(&root, &root.join("something_test.gd")));
 }
+
+#[test]
+fn default_is_test_path_case_insensitive() {
+    let (_dir, root) = project(&[
+        ("Tests/foo.gd", ""),
+        ("TEST/bar.gd", ""),
+        ("Test_Something.gd", ""),
+        ("something_Test.gd", ""),
+    ]);
+    assert!(default_is_test_path(&root, &root.join("Tests/foo.gd")));
+    assert!(default_is_test_path(&root, &root.join("TEST/bar.gd")));
+    assert!(default_is_test_path(&root, &root.join("Test_Something.gd")));
+    assert!(default_is_test_path(&root, &root.join("something_Test.gd")));
+}
